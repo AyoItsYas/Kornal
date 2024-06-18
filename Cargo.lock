@@ -1012,6 +1012,8 @@ dependencies = [
 name = "kornal"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "embedded-hal 1.0.0",
  "embuild",
  "esp-idf-svc",
  "log",
