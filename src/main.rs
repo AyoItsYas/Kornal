@@ -1,31 +1,51 @@
-use anyhow::Result;
-use esp_idf_svc::hal::{
-    i2c::{I2cConfig, I2cDriver},
+#![no_std]
+#![no_main]
+
+use esp_backtrace as _;
+use esp_hal::{
+    clock::ClockControl,
+    delay::Delay,
+    gpio::{Io, Level, Output},
+    i2c::I2C,
     peripherals::Peripherals,
     prelude::*,
+    system::SystemControl,
 };
-
+use esp_println::println;
 use kornal::lcd1602a::Lcd1602a;
 
-fn main() -> Result<()> {
-    esp_idf_svc::sys::link_patches();
+#[entry]
+fn main() -> ! {
+    println!("Hello world!");
 
-    esp_idf_svc::log::EspLogger::initialize_default();
+    let peripherals = Peripherals::take();
+    let system = SystemControl::new(peripherals.SYSTEM);
 
-    let peripherals = Peripherals::take().unwrap();
+    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 
-    let sda = peripherals.pins.gpio21;
-    let scl = peripherals.pins.gpio22;
+    let delay = Delay::new(&clocks);
 
-    let config = I2cConfig::new().baudrate(100.kHz().into());
-    let i2c = I2cDriver::new(peripherals.i2c0, sda, scl, &config)?;
+    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut gpio2 = Output::new(io.pins.gpio2, Level::Low);
 
-    let mut lcd = Lcd1602a::new(i2c, 0x27);
+    let i2c = I2C::new(
+        peripherals.I2C0,
+        io.pins.gpio21,
+        io.pins.gpio22,
+        100.kHz(),
+        &clocks,
+        None,
+    );
 
-    lcd.init()?;
-    lcd.clear()?;
-    lcd.put_cursor(0, 0)?;
-    lcd.send_string("Hello, world!")?;
+    let mut lcd = Lcd1602a::new(i2c, 0x27, delay);
 
-    return Result::Ok(());
+    lcd.init();
+    lcd.clear();
+    lcd.put_cursor(0, 0);
+    lcd.send_string("Hello world!!!");
+
+    loop {
+        gpio2.toggle();
+        delay.delay_millis(500u32);
+    }
 }
