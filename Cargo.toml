@@ -7,13 +7,15 @@ resolver = "2"
 rust-version = "1.71"
 
 [dependencies]
-esp-hal = { version = "0.18.0", features = ["esp32"] }
-esp-backtrace = { version = "0.12.0", features = [
+esp-hal = { version = "0.22.0", features = ["esp32"] }
+esp-backtrace = { version = "0.14.2", features = [
     "esp32",
     "panic-handler",
     "exception-handler",
     "println",
 ] }
-esp-println = { version = "0.9.1", features = ["esp32", "uart"] }
+esp-println = "0.12.0"
 # anyhow = "1.0.86"
 embedded-hal = "1.0.0"
+fugit = "0.3.7"
+itoa = "1.0"

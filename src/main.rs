@@ -3,49 +3,58 @@
 
 use esp_backtrace as _;
 use esp_hal::{
-    clock::ClockControl,
     delay::Delay,
-    gpio::{Io, Level, Output},
-    i2c::I2C,
-    peripherals::Peripherals,
+    gpio::{Level, Output},
+    i2c::master::I2c,
     prelude::*,
-    system::SystemControl,
 };
 use esp_println::println;
+use fugit::HertzU32;
+use kornal::aht20::AHT20;
 use kornal::lcd1602a::Lcd1602a;
 
 #[entry]
 fn main() -> ! {
-    println!("Hello world!");
+    let peripherals = esp_hal::init({
+        let mut config = esp_hal::Config::default();
+        config.cpu_clock = CpuClock::max();
+        config
+    });
 
-    let peripherals = Peripherals::take();
-    let system = SystemControl::new(peripherals.SYSTEM);
+    let mut led = Output::new(peripherals.GPIO2, Level::Low);
 
-    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+    let delay = Delay::new();
 
-    let delay = Delay::new(&clocks);
-
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut gpio2 = Output::new(io.pins.gpio2, Level::Low);
-
-    let i2c = I2C::new(
-        peripherals.I2C0,
-        io.pins.gpio21,
-        io.pins.gpio22,
-        100.kHz(),
-        &clocks,
-        None,
-    );
-
-    let mut lcd = Lcd1602a::new(i2c, 0x27, delay);
-
-    lcd.init();
-    lcd.clear();
-    lcd.put_cursor(0, 0);
-    lcd.send_string("Hello world!!!");
+    let mut i2c = I2c::new(peripherals.I2C0, {
+        let mut config = esp_hal::i2c::master::Config::default();
+        config.frequency = HertzU32::kHz(200);
+        config
+    })
+    .with_sda(peripherals.GPIO21)
+    .with_scl(peripherals.GPIO22);
 
     loop {
-        gpio2.toggle();
-        delay.delay_millis(500u32);
+        let mut aht20 = AHT20::new(&mut i2c, 0x38, delay);
+        aht20.init().unwrap();
+        let (temp, hum, _, _) = aht20.read_values().unwrap();
+
+        let mut lcd = Lcd1602a::new(&mut i2c, 0x27, delay);
+
+        lcd.init();
+
+        lcd.put_cursor(0, 0);
+        lcd.send_string("Temperature : ");
+        lcd.send_number(temp as u32);
+
+        lcd.put_cursor(1, 0);
+        lcd.send_string("Humidity    : ");
+        lcd.send_number(hum as u32);
+
+        println!("{{\"temp\": {:.20}, \"hum\": {:.20}}}", temp, hum);
+
+        delay.delay_millis(950);
+        led.toggle();
+        delay.delay_millis(50);
+        led.toggle();
     }
 }

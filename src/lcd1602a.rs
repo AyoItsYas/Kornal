@@ -121,4 +121,23 @@ impl<I2C: I2c> Lcd1602a<I2C> {
 
         return;
     }
+
+    pub fn send_number(&mut self, n: u32) {
+        let mut num = n;
+        let mut digits = [0u8; 10];
+        let mut i = 0;
+
+        while num > 0 {
+            digits[i] = (num % 10) as u8;
+            num /= 10;
+            i += 1;
+        }
+
+        while i > 0 {
+            i -= 1;
+            self.send_data((digits[i] + 48) as u8);
+        }
+
+        return;
+    }
 }
